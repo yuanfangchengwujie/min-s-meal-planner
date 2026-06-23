@@ -1,5 +1,5 @@
 {
-  "name": "min-s-meal-planner",
+  "name": "min-s-meal-planner-v1",
   "compatibility_date": "2026-06-23",
   "compatibility_flags": ["nodejs_compat"],
   "main": "dist/server/server.js"
