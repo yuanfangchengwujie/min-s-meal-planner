@@ -86,8 +86,8 @@ async function loadFromCloud(userId: string): Promise<AppState> {
     : DEFAULT_STATE.profile;
 
   const foodStatus: Record<string, FoodStatus> = {};
-  (fRes.data ?? []).forEach((r: { food_id: string; status: FoodStatus }) => {
-    foodStatus[r.food_id] = r.status;
+  (fRes.data ?? []).forEach((r) => {
+    foodStatus[r.food_id] = r.status as FoodStatus;
   });
 
   const trials: TrialEntry[] = (tRes.data ?? []).map((r) => ({
