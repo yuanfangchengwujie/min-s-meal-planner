@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TrialsRouteImport } from './routes/trials'
 import { Route as RecipesRouteImport } from './routes/recipes'
 import { Route as PantryRouteImport } from './routes/pantry'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TrialsRoute = TrialsRouteImport.update({
@@ -29,6 +30,11 @@ const PantryRoute = PantryRouteImport.update({
   path: '/pantry',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +43,14 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/pantry': typeof PantryRoute
   '/recipes': typeof RecipesRoute
   '/trials': typeof TrialsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/pantry': typeof PantryRoute
   '/recipes': typeof RecipesRoute
   '/trials': typeof TrialsRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/pantry': typeof PantryRoute
   '/recipes': typeof RecipesRoute
   '/trials': typeof TrialsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pantry' | '/recipes' | '/trials'
+  fullPaths: '/' | '/auth' | '/pantry' | '/recipes' | '/trials'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pantry' | '/recipes' | '/trials'
-  id: '__root__' | '/' | '/pantry' | '/recipes' | '/trials'
+  to: '/' | '/auth' | '/pantry' | '/recipes' | '/trials'
+  id: '__root__' | '/' | '/auth' | '/pantry' | '/recipes' | '/trials'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   PantryRoute: typeof PantryRoute
   RecipesRoute: typeof RecipesRoute
   TrialsRoute: typeof TrialsRoute
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PantryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   PantryRoute: PantryRoute,
   RecipesRoute: RecipesRoute,
   TrialsRoute: TrialsRoute,
