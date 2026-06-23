@@ -14,7 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      food_status: {
+        Row: {
+          food_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          food_id: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          food_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          baby_age_months: number
+          baby_name: string
+          created_at: string
+          known_allergens: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          baby_age_months?: number
+          baby_name?: string
+          created_at?: string
+          known_allergens?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          baby_age_months?: number
+          baby_name?: string
+          created_at?: string
+          known_allergens?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trials: {
+        Row: {
+          created_at: string
+          food_id: string
+          id: string
+          notes: string
+          result: string | null
+          start_date: string
+          symptoms: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          food_id: string
+          id?: string
+          notes?: string
+          result?: string | null
+          start_date: string
+          symptoms?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          food_id?: string
+          id?: string
+          notes?: string
+          result?: string | null
+          start_date?: string
+          symptoms?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
