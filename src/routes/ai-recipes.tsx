@@ -97,7 +97,7 @@ const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     "Authorization": `Bearer ${apiKey}`,
   },
   body: JSON.stringify({
-    model: "deepseek/deepseek-r1-0528:free",
+    model: "openrouter/free",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.7,
     max_tokens: 1000,
