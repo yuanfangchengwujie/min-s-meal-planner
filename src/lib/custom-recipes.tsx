@@ -25,7 +25,7 @@ export function useCustomRecipes() {
       .from("custom_recipes")
       .select("*")
       .order("created_at", { ascending: true });
-    if (!error && data) setCustomRecipes(data as CustomRecipe[]);
+    if (!error && data) setCustomRecipes(data as unknown as CustomRecipe[]);
     setLoading(false);
   }
 
