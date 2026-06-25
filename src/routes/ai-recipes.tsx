@@ -96,12 +96,12 @@ const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${apiKey}`,
   },
-  body: JSON.stringify({
-    model: "deepseek/deepseek-v3:free",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.7,
-    max_tokens: 1000,
-  }),
+body: JSON.stringify({
+  model: "meta-llama/llama-3.3-70b-instruct:free",
+  messages: [{ role: "user", content: prompt }],
+  temperature: 0.7,
+  max_tokens: 1000,
+}),
 });
 
 const data = await res.json();
