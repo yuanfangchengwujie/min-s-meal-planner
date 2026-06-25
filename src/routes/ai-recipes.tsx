@@ -108,9 +108,15 @@ function AiRecipesPage() {
 
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-      if (!text) {
-        throw new Error(`Gemini返回空内容，完整响应：${dataStr.slice(0, 300)}`);
-      }
+if (data.error) {
+  if (data.error.code === 429) {
+    throw new Error("请求太频繁，请等1分钟后再试。");
+  }
+  throw new Error(`API错误：${data.error.message}`);
+}
+if (!text) {
+  throw new Error(`Gemini返回空内容，完整响应：${dataStr.slice(0, 300)}`);
+}
 
       const match = text.match(/\{[\s\S]*\}/);
       if (!match) throw new Error(`无法提取JSON，原始内容：${text.slice(0, 200)}`);
