@@ -87,26 +87,32 @@ function AiRecipesPage() {
 }`;
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"}`);
+const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"}`);
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 1000 },
-          }),
-        }
-      );
+const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${apiKey}`,
+  },
+  body: JSON.stringify({
+    model: "meta-llama/llama-3.1-8b-instruct:free",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.7,
+    max_tokens: 1000,
+  }),
+});
 
-      const data = await res.json();
-      const dataStr = JSON.stringify(data);
-      setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"} | 响应: ${dataStr.slice(0, 200)}`);
+const data = await res.json();
+const dataStr = JSON.stringify(data);
+setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"} | 响应: ${dataStr.slice(0, 200)}`);
 
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+if (data.error) {
+  throw new Error(`API错误：${data.error.message}`);
+}
+
+const text = data.choices?.[0]?.message?.content ?? "";
 
 if (data.error) {
   if (data.error.code === 429) {
