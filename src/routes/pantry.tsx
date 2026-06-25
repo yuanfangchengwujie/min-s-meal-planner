@@ -119,57 +119,12 @@ function PantryPage() {
       </section>
 
       {CATEGORIES.map((cat) => {
-        const items = filtered.filter((f) => f.category === cat);
-        if (items.length === 0) return null;
-        return (
-          <section key={cat}>
-            <h3 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">{cat}</h3>
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {items.map((f) => {
-                const status = (state.foodStatus[f.id] ?? "untested") as FoodStatus;
-                return (
-                  <li key={f.id} className="rounded-2xl border border-border/70 bg-card p-3 shadow-soft">
-                    <div className="flex items-start gap-3">
-                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-xl">{f.emoji}</div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate font-semibold">{f.name}</p>
-                          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", STATUS_META[status].chip)}>
-                            {STATUS_META[status].label}
-                          </span>
-                          {f.isCustom && (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-600">自定义</span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {f.nutrients.slice(0, 4).join(" · ") || "—"}
-                          {f.allergens.length > 0 && (
-                            <span className="ml-1 text-danger">· 含{f.allergens.map((a) => ALLERGEN_LABEL[a]).join("/")}</span>
-                          )}
-                        </p>
-                      </div>
-                      {f.isCustom && (
-                        <button
-                          onClick={() => deleteCustomFood(f.customId!)}
-                          className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-3 grid grid-cols-4 gap-1">
-                      <StatusBtn current={status} target="safe" onClick={() => setFoodStatus(f.id, "safe")}><Check className="h-3.5 w-3.5" />排敏</StatusBtn>
-                      <StatusBtn current={status} target="trialing" onClick={() => setFoodStatus(f.id, "trialing")}><Beaker className="h-3.5 w-3.5" />测试</StatusBtn>
-                      <StatusBtn current={status} target="untested" onClick={() => setFoodStatus(f.id, "untested")}><HelpCircle className="h-3.5 w-3.5" />未试</StatusBtn>
-                      <StatusBtn current={status} target="allergic" onClick={() => setFoodStatus(f.id, "allergic")}><X className="h-3.5 w-3.5" />过敏</StatusBtn>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        );
-      })}
+  const items = filtered.filter((f) => f.category === cat);
+  if (items.length === 0) return null;
+  return (
+    <CollapsibleCategory key={cat} cat={cat} items={items} state={state} />
+  );
+})}
 
       {showAdd && (
         <AddFoodModal
@@ -247,6 +202,81 @@ function AddFoodModal({ onClose, allNutrients, allAllergens }: {
         </div>
       </div>
     </div>
+  );
+}
+
+function CollapsibleCategory({ cat, items, state }: {
+  cat: FoodCategory;
+  items: typeof FOODS[0][];
+  state: ReturnType<typeof useAppState>["state"];
+}) {
+  const [open, setOpen] = useState(false);
+  const safeCount = items.filter(f => (state.foodStatus[f.id] ?? "untested") === "safe").length;
+
+  return (
+    <section>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between mb-3 group"
+      >
+        <div className="flex items-center gap-2">
+          <h3 className="font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            {cat}
+          </h3>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+            {items.length} 种 · {safeCount} 已排敏
+          </span>
+        </div>
+        <span className={cn("text-muted-foreground transition-transform duration-200", open ? "rotate-180" : "")}>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {items.map((f) => {
+            const status = (state.foodStatus[f.id] ?? "untested") as FoodStatus;
+            return (
+              <li key={f.id} className="rounded-2xl border border-border/70 bg-card p-3 shadow-soft">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-xl">{f.emoji}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-semibold">{f.name}</p>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", STATUS_META[status].chip)}>
+                        {STATUS_META[status].label}
+                      </span>
+                      {(f as any).isCustom && (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-600">自定义</span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {f.nutrients.slice(0, 4).join(" · ") || "—"}
+                      {f.allergens.length > 0 && (
+                        <span className="ml-1 text-danger">· 含{f.allergens.map((a: AllergenId) => ALLERGEN_LABEL[a]).join("/")}</span>
+                      )}
+                    </p>
+                  </div>
+                  {(f as any).isCustom && (
+                    <button
+                      onClick={() => deleteCustomFood((f as any).customId!)}
+                      className="shrink-0 rounded-lg p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="mt-3 grid grid-cols-4 gap-1">
+                  <StatusBtn current={status} target="safe" onClick={() => setFoodStatus(f.id, "safe")}><Check className="h-3.5 w-3.5" />排敏</StatusBtn>
+                  <StatusBtn current={status} target="trialing" onClick={() => setFoodStatus(f.id, "trialing")}><Beaker className="h-3.5 w-3.5" />测试</StatusBtn>
+                  <StatusBtn current={status} target="untested" onClick={() => setFoodStatus(f.id, "untested")}><HelpCircle className="h-3.5 w-3.5" />未试</StatusBtn>
+                  <StatusBtn current={status} target="allergic" onClick={() => setFoodStatus(f.id, "allergic")}><X className="h-3.5 w-3.5" />过敏</StatusBtn>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
