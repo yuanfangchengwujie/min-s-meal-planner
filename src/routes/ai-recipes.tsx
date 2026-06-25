@@ -32,8 +32,8 @@ function AiRecipesPage() {
   const [selectedFoods, setSelectedFoods] = useState<string[]>([]);
   const [selectedMeal, setSelectedMeal] = useState<string>("午餐");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<GeneratedRecipe | null>(null);
-  const [saved, setSaved] = useState(false);
+const [results, setResults] = useState<GeneratedRecipe[]>([]);
+const [savedIndexes, setSavedIndexes] = useState<number[]>([]);
   const [error, setError] = useState("");
   const [debugInfo, setDebugInfo] = useState("");
 
@@ -53,8 +53,8 @@ function AiRecipesPage() {
   const generate = async () => {
     if (selectedFoods.length === 0) return;
     setLoading(true);
-    setResult(null);
-    setSaved(false);
+setResults([]);
+setSavedIndexes([]);
     setError("");
     setDebugInfo("");
 
@@ -77,18 +77,20 @@ ${selectedMeal === "早餐" || selectedMeal === "加餐" ? `- 早餐/加餐可�
 - 只使用以上列出的食材
 - 步骤简单，适合家庭制作
 
-请严格按照以下JSON格式返回，不要有任何其他文字：
-{
-  "name": "食谱名称",
-  "emoji": "一个相关emoji",
-  "meal": ["${selectedMeal}"],
-  "prep_min": 准备时间数字,
-  "ingredients": [
-    {"foodId": "食材名称", "amount": "用量"}
-  ],
-  "steps": ["步骤1", "步骤2", "步骤3"],
-  "tip": "小贴士（可选）"
-}`;
+请严格返回包含3个不同食谱的JSON数组，不要有任何其他文字。每个食谱使用不同的食材组合，不需要用完所有食材：
+[
+  {
+    "name": "食谱名称",
+    "emoji": "一个相关emoji",
+    "meal": ["${selectedMeal}"],
+    "prep_min": 准备时间数字,
+    "ingredients": [
+      {"foodId": "食材名称", "amount": "用量"}
+    ],
+    "steps": ["步骤1", "步骤2", "步骤3"],
+    "tip": "小贴士（可选）"
+  }
+]`;
 
     try {
 const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
@@ -146,11 +148,10 @@ if (!text) {
   throw new Error(`Gemini返回空内容，完整响应：${dataStr.slice(0, 300)}`);
 }
 
-      const match = text.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error(`无法提取JSON，原始内容：${text.slice(0, 200)}`);
-
-      const recipe = JSON.parse(match[0]) as GeneratedRecipe;
-      setResult(recipe);
+const match = text.match(/\[[\s\S]*\]/);
+if (!match) throw new Error(`无法提取JSON，原始内容：${text.slice(0, 200)}`);
+const recipes = JSON.parse(match[0]) as GeneratedRecipe[];
+setResults(recipes);
     } catch (e) {
       setError(`生成失败：${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -158,11 +159,10 @@ if (!text) {
     }
   };
 
-  const save = async () => {
-    if (!result) return;
-    await addCustomRecipe(result);
-    setSaved(true);
-  };
+const save = async (recipe: GeneratedRecipe, index: number) => {
+  await addCustomRecipe(recipe);
+  setSavedIndexes(prev => [...prev, index]);
+};
 
   if (!ready) return <div className="text-muted-foreground">加载中…</div>;
 
@@ -244,56 +244,60 @@ if (!text) {
         </div>
       )}
 
-      {result && (
-        <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft space-y-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex gap-1 mb-1">
-                {result.meal.map(m => (
-                  <span key={m} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold">{m}</span>
-                ))}
-              </div>
-              <h3 className="font-display text-xl font-bold">{result.name}</h3>
-              <p className="text-xs text-muted-foreground mt-1">⏱ {result.prep_min} 分钟</p>
-            </div>
-            <span className="text-4xl">{result.emoji}</span>
-          </div>
-
+  {results.length > 0 && (
+  <div className="space-y-4">
+    {results.map((recipe, index) => (
+      <section key={index} className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft space-y-4">
+        <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-semibold text-muted-foreground mb-2">食材</p>
-            <div className="flex flex-wrap gap-1.5">
-              {result.ingredients.map((ing, i) => (
-                <span key={i} className="rounded-lg bg-muted px-2 py-1 text-xs">
-                  {ing.foodId} {ing.amount}
-                </span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">方案 {index + 1}</span>
+              {recipe.meal.map(m => (
+                <span key={m} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold">{m}</span>
               ))}
             </div>
+            <h3 className="font-display text-xl font-bold">{recipe.name}</h3>
+            <p className="text-xs text-muted-foreground mt-1">⏱ {recipe.prep_min} 分钟</p>
           </div>
+          <span className="text-4xl">{recipe.emoji}</span>
+        </div>
 
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground mb-2">做法</p>
-            <ol className="list-decimal pl-4 space-y-1.5 text-sm text-muted-foreground">
-              {result.steps.map((s, i) => <li key={i}>{s}</li>)}
-            </ol>
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2">食材</p>
+          <div className="flex flex-wrap gap-1.5">
+            {recipe.ingredients.map((ing, i) => (
+              <span key={i} className="rounded-lg bg-muted px-2 py-1 text-xs">
+                {ing.foodId} {ing.amount}
+              </span>
+            ))}
           </div>
+        </div>
 
-          {result.tip && (
-            <p className="rounded-xl bg-secondary/60 p-2.5 text-xs">💡 {result.tip}</p>
-          )}
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2">做法</p>
+          <ol className="list-decimal pl-4 space-y-1.5 text-sm text-muted-foreground">
+            {recipe.steps.map((s, i) => <li key={i}>{s}</li>)}
+          </ol>
+        </div>
 
-          <div className="flex gap-3 pt-2">
-            <button onClick={generate}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl border border-border py-2.5 text-sm font-semibold hover:bg-secondary">
-              <RefreshCw className="h-4 w-4" /> 重新生成
-            </button>
-            <button onClick={save} disabled={saved}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-              <Save className="h-4 w-4" />
-              {saved ? "已保存！" : "保存到食谱库"}
-            </button>
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
+        {recipe.tip && (
+          <p className="rounded-xl bg-secondary/60 p-2.5 text-xs">💡 {recipe.tip}</p>
+        )}
+
+        <button
+          onClick={() => save(recipe, index)}
+          disabled={savedIndexes.includes(index)}
+          className="w-full flex items-center justify-center gap-1.5 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+        >
+          <Save className="h-4 w-4" />
+          {savedIndexes.includes(index) ? "已保存！" : "保存到食谱库"}
+        </button>
+      </section>
+    ))}
+
+    <button onClick={generate}
+      className="w-full flex items-center justify-center gap-1.5 rounded-2xl border border-border py-2.5 text-sm font-semibold hover:bg-secondary">
+      <RefreshCw className="h-4 w-4" /> 重新生成
+    </button>
+  </div>
+)}
