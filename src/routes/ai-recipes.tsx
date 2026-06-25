@@ -301,3 +301,6 @@ const save = async (recipe: GeneratedRecipe, index: number) => {
     </button>
   </div>
 )}
+          </div>
+  );
+}
