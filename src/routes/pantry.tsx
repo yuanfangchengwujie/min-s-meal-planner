@@ -64,6 +64,7 @@ function PantryPage() {
   const counts = {
     safe: Object.values(state.foodStatus).filter((s) => s === "safe").length,
     trialing: Object.values(state.foodStatus).filter((s) => s === "trialing").length,
+    untested: allFoods.length - Object.values(state.foodStatus).filter((s) => s !== "untested").length,
     allergic: Object.values(state.foodStatus).filter((s) => s === "allergic").length,
   };
 
@@ -87,6 +88,7 @@ function PantryPage() {
       <section className="grid grid-cols-3 gap-3">
         <StatCard label="已排敏" value={counts.safe} variant="safe" />
         <StatCard label="测试中" value={counts.trialing} variant="warn" />
+        <StatCard label="未试" value={counts.untested} variant="untested" />
         <StatCard label="已过敏" value={counts.allergic} variant="danger" />
       </section>
 
@@ -248,9 +250,9 @@ function AddFoodModal({ onClose, allNutrients, allAllergens }: {
   );
 }
 
-function StatCard({ label, value, variant }: { label: string; value: number; variant: "safe" | "warn" | "danger" }) {
-  const ring = variant === "safe" ? "bg-safe/10" : variant === "warn" ? "bg-warn/15" : "bg-danger/10";
-  const text = variant === "safe" ? "text-safe" : variant === "warn" ? "text-warn-foreground" : "text-danger";
+function StatCard({ label, value, variant }: { label: string; value: number; variant: "safe" | "warn" | "danger" | "untested" }) {
+  const ring = variant === "safe" ? "bg-safe/10" : variant === "warn" ? "bg-warn/15" : variant === "untested" ? "bg-muted" : "bg-danger/10";
+  const text = variant === "safe" ? "text-safe" : variant === "warn" ? "text-warn-foreground" : variant === "untested" ? "text-muted-foreground" : "text-danger";
   return (
     <div className={cn("rounded-2xl p-4", ring)}>
       <p className="text-xs text-muted-foreground">{label}</p>
