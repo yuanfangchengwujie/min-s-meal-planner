@@ -91,11 +91,12 @@ const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"}`);
 
 const models = [
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "deepseek/deepseek-r1:free",
-  "google/gemma-3-12b-it:free",
-  "mistralai/mistral-small-3.2-24b-instruct:free",
-  "qwen/qwen3-8b:free",
+  "openrouter/owl-alpha",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "openai/gpt-oss-20b:free",
+  "google/gemma-4-31b-it:free",
+  "z-ai/glm-4.5-air:free",
+  "moonshotai/kimi-k2.6:free",
 ];
 
 let data: any = null;
