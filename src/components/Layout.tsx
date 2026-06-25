@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Sparkles, Carrot, FlaskConical, BookOpen, LogOut, Cloud } from "lucide-react";
+import { Sparkles, Carrot, FlaskConical, BookOpen, LogOut, Cloud, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth, signOut } from "@/lib/auth";
 import { useEffect } from "react";
@@ -9,6 +9,7 @@ const NAV = [
   { to: "/pantry", label: "食材库", icon: Carrot },
   { to: "/trials", label: "排敏记录", icon: FlaskConical },
   { to: "/recipes", label: "食谱库", icon: BookOpen },
+  { to: "/ai-recipes", label: "AI食谱", icon: Wand2 },
 ] as const;
 
 export function Layout() {
@@ -80,7 +81,7 @@ export function Layout() {
 
       {/* Bottom nav */}
       <nav className="fixed bottom-3 left-1/2 z-30 -translate-x-1/2 w-[min(96%,30rem)] rounded-3xl border border-border/70 bg-card/90 px-2 py-2 shadow-glow backdrop-blur-md sm:bottom-6">
-        <ul className="grid grid-cols-4 gap-1">
+        <ul className="grid grid-cols-5 gap-1">
           {NAV.map((n) => {
             const active = pathname === n.to;
             const Icon = n.icon;
