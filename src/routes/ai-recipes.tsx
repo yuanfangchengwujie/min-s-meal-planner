@@ -90,27 +90,44 @@ function AiRecipesPage() {
 const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
 setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"}`);
 
-const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${apiKey}`,
-  },
-body: JSON.stringify({
-  model: "meta-llama/llama-3.3-70b-instruct:free",
-  messages: [{ role: "user", content: prompt }],
-  temperature: 0.7,
-  max_tokens: 1000,
-}),
-});
+const models = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "deepseek/deepseek-r1:free",
+  "google/gemma-3-12b-it:free",
+  "mistralai/mistral-small-3.2-24b-instruct:free",
+  "qwen/qwen3-8b:free",
+];
 
-const data = await res.json();
-const dataStr = JSON.stringify(data);
-setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"} | 响应: ${dataStr.slice(0, 200)}`);
+let data: any = null;
+let lastError = "";
 
-if (data.error) {
-  throw new Error(`API错误：${data.error.message}`);
+for (const model of models) {
+  setDebugInfo(`正在尝试模型：${model}`);
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 1000,
+    }),
+  });
+  data = await res.json();
+  if (!data.error) break;
+  lastError = data.error.message;
+  setDebugInfo(`模型 ${model} 失败，尝试下一个…`);
 }
+
+if (!data || data.error) {
+  throw new Error(`所有模型均失败：${lastError}`);
+}
+
+const dataStr = JSON.stringify(data);
+setDebugInfo(`成功！响应: ${dataStr.slice(0, 100)}`);
 
 const text = data.choices?.[0]?.message?.content ?? "";
 
