@@ -100,9 +100,13 @@ function AiRecipesPage() {
       );
 
       const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      const clean = text.replace(/```json|```/g, "").trim();
-      const recipe = JSON.parse(clean) as GeneratedRecipe;
+const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+console.log("Gemini raw response:", text);
+
+// 更強力的清理：提取第一個 { } 之間的內容
+const match = text.match(/\{[\s\S]*\}/);
+if (!match) throw new Error("No JSON found in response");
+const recipe = JSON.parse(match[0]) as GeneratedRecipe;
       setResult(recipe);
     } catch (e) {
       setError(`生成失败：${e instanceof Error ? e.message : String(e)}`);
