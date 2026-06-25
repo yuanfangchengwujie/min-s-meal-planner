@@ -35,8 +35,8 @@ function AiRecipesPage() {
   const [result, setResult] = useState<GeneratedRecipe | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [debugInfo, setDebugInfo] = useState("");
 
-  // 只顯示已排敏的食材
   const safeFoods = useMemo(() => {
     const presetSafe = FOODS.filter(f => state.foodStatus[f.id] === "safe");
     const customSafe = customFoods
@@ -56,6 +56,7 @@ function AiRecipesPage() {
     setResult(null);
     setSaved(false);
     setError("");
+    setDebugInfo("");
 
     const foodNames = selectedFoods.map(id => {
       const f = safeFoods.find(f => f.id === id);
@@ -87,6 +88,8 @@ function AiRecipesPage() {
 
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"}`);
+
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
         {
@@ -100,17 +103,22 @@ function AiRecipesPage() {
       );
 
       const data = await res.json();
-const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-console.log("Gemini raw response:", text);
+      const dataStr = JSON.stringify(data);
+      setDebugInfo(`API Key: ${apiKey ? "已找到" : "未找到"} | 响应: ${dataStr.slice(0, 200)}`);
 
-// 更強力的清理：提取第一個 { } 之間的內容
-const match = text.match(/\{[\s\S]*\}/);
-if (!match) throw new Error("No JSON found in response");
-const recipe = JSON.parse(match[0]) as GeneratedRecipe;
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+      if (!text) {
+        throw new Error(`Gemini返回空内容，完整响应：${dataStr.slice(0, 300)}`);
+      }
+
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error(`无法提取JSON，原始内容：${text.slice(0, 200)}`);
+
+      const recipe = JSON.parse(match[0]) as GeneratedRecipe;
       setResult(recipe);
     } catch (e) {
       setError(`生成失败：${e instanceof Error ? e.message : String(e)}`);
-      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -133,7 +141,6 @@ const recipe = JSON.parse(match[0]) as GeneratedRecipe;
         </p>
       </section>
 
-      {/* 选餐型 */}
       <section>
         <p className="mb-2 text-sm font-semibold">选择餐型</p>
         <div className="flex gap-2">
@@ -147,7 +154,6 @@ const recipe = JSON.parse(match[0]) as GeneratedRecipe;
         </div>
       </section>
 
-      {/* 选食材 */}
       <section>
         <p className="mb-2 text-sm font-semibold">
           选择今天有的食材
@@ -179,7 +185,6 @@ const recipe = JSON.parse(match[0]) as GeneratedRecipe;
         )}
       </section>
 
-      {/* 生成按钮 */}
       <button
         onClick={generate}
         disabled={selectedFoods.length === 0 || loading}
@@ -192,9 +197,19 @@ const recipe = JSON.parse(match[0]) as GeneratedRecipe;
         )}
       </button>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {/* 调试信息 */}
+      {debugInfo && (
+        <div className="rounded-xl bg-muted p-3 text-xs text-muted-foreground break-all">
+          {debugInfo}
+        </div>
+      )}
 
-      {/* 生成结果 */}
+      {error && (
+        <div className="rounded-xl bg-danger/10 p-3 text-sm text-danger break-all">
+          {error}
+        </div>
+      )}
+
       {result && (
         <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft space-y-4">
           <div className="flex items-start justify-between">
