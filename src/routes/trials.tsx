@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Plus, CalendarDays, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
+import { Plus, CalendarDays, AlertCircle, CheckCircle2, Trash2, X } from "lucide-react";
 import { FOODS, FOODS_BY_ID } from "@/lib/foods";
 import { useAppState, type TrialEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -10,8 +10,6 @@ export const Route = createFileRoute("/trials")({
     meta: [
       { title: "排敏记录 · 敏宝食谱" },
       { name: "description", content: "为新食物建立 3 天观察记录,出现湿疹等症状可即时记录。" },
-      { property: "og:title", content: "排敏记录 · 敏宝食谱" },
-      { property: "og:description", content: "科学的食物排敏跟踪 — 3 天观察期 + 症状打卡。" },
     ],
   }),
   component: TrialsPage,
@@ -22,11 +20,19 @@ function daysSince(iso: string) {
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
 
+type Severity = TrialEntry["symptoms"][number]["severity"];
+
 function TrialsPage() {
   const { state, update, ready } = useAppState();
   const [showAdd, setShowAdd] = useState(false);
   const [newFoodId, setNewFoodId] = useState("");
   const [newNote, setNewNote] = useState("");
+  // 每個 trial 的打卡狀態：{ trialId: { severity, comment, showComment } }
+  const [checkIn, setCheckIn] = useState<Record<string, {
+    severity: Severity | null;
+    comment: string;
+    showComment: boolean;
+  }>>({});
 
   const active = useMemo(
     () => state.trials.filter((t) => !t.result).sort((a, b) => b.startDate.localeCompare(a.startDate)),
@@ -58,12 +64,44 @@ function TrialsPage() {
     setShowAdd(false);
   };
 
-  const logSymptom = (id: string, severity: TrialEntry["symptoms"][number]["severity"]) => {
+  const selectSeverity = (trialId: string, severity: Severity) => {
+    setCheckIn(prev => ({
+      ...prev,
+      [trialId]: {
+        severity: prev[trialId]?.severity === severity ? null : severity,
+        comment: prev[trialId]?.comment ?? "",
+        showComment: prev[trialId]?.showComment ?? false,
+      }
+    }));
+  };
+
+  const submitCheckIn = (trialId: string) => {
+    const c = checkIn[trialId];
+    if (!c?.severity) return;
     update((s) => ({
       ...s,
       trials: s.trials.map((t) =>
-        t.id === id
-          ? { ...t, symptoms: [...t.symptoms, { date: new Date().toISOString().slice(0, 10), severity, note: "" }] }
+        t.id === trialId
+          ? {
+              ...t,
+              symptoms: [...t.symptoms, {
+                date: new Date().toISOString().slice(0, 10),
+                severity: c.severity!,
+                note: c.comment,
+              }]
+            }
+          : t,
+      ),
+    }));
+    setCheckIn(prev => ({ ...prev, [trialId]: { severity: null, comment: "", showComment: false } }));
+  };
+
+  const removeSymptom = (trialId: string, index: number) => {
+    update((s) => ({
+      ...s,
+      trials: s.trials.map((t) =>
+        t.id === trialId
+          ? { ...t, symptoms: t.symptoms.filter((_, i) => i !== index) }
           : t,
       ),
     }));
@@ -150,7 +188,6 @@ function TrialsPage() {
         </section>
       )}
 
-      {/* Active */}
       <section>
         <h3 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
           进行中 · {active.length}
@@ -165,6 +202,8 @@ function TrialsPage() {
               const food = FOODS_BY_ID[t.foodId];
               const day = daysSince(t.startDate) + 1;
               const progress = Math.min(day, 3);
+              const c = checkIn[t.id] ?? { severity: null, comment: "", showComment: false };
+
               return (
                 <li key={t.id} className="rounded-3xl border border-border/70 bg-card p-5 shadow-soft">
                   <div className="flex items-start gap-3">
@@ -189,52 +228,103 @@ function TrialsPage() {
                     </button>
                   </div>
 
-                  {/* Progress */}
                   <div className="mt-4 flex gap-1.5">
                     {[1, 2, 3].map((d) => (
-                      <div
-                        key={d}
-                        className={cn(
-                          "h-2 flex-1 rounded-full",
-                          d <= progress ? "bg-safe" : "bg-muted",
-                        )}
-                      />
+                      <div key={d} className={cn("h-2 flex-1 rounded-full", d <= progress ? "bg-safe" : "bg-muted")} />
                     ))}
                   </div>
 
-                  {/* Symptom log */}
-                  <div className="mt-4">
-                    <p className="text-xs font-medium text-muted-foreground">今天打卡:</p>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      <SymBtn onClick={() => logSymptom(t.id, "none")} tone="safe">无反应 ✓</SymBtn>
-                      <SymBtn onClick={() => logSymptom(t.id, "mild")} tone="warn">轻微</SymBtn>
-                      <SymBtn onClick={() => logSymptom(t.id, "moderate")} tone="warn">湿疹/红疹</SymBtn>
-                      <SymBtn onClick={() => logSymptom(t.id, "severe")} tone="danger">严重</SymBtn>
-                    </div>
-                  </div>
-
-                  {t.symptoms.length > 0 && (
-                    <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-                      {t.symptoms.map((s, i) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <span className="font-mono">{s.date}</span>
-                          <span
+                  {/* 打卡區域 */}
+                  <div className="mt-4 rounded-2xl border border-border/60 bg-background p-3 space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground">今天打卡</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        { value: "none", label: "无反应 ✓", tone: "safe" },
+                        { value: "mild", label: "轻微", tone: "warn" },
+                        { value: "moderate", label: "湿疹/红疹", tone: "warn" },
+                        { value: "severe", label: "严重", tone: "danger" },
+                      ] as const).map(({ value, label, tone }) => {
+                        const selected = c.severity === value;
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => selectSeverity(t.id, value)}
                             className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px]",
-                              s.severity === "none" && "bg-safe/15 text-safe",
-                              s.severity === "mild" && "bg-warn/20 text-warn-foreground",
-                              s.severity === "moderate" && "bg-warn/40 text-warn-foreground",
-                              s.severity === "severe" && "bg-danger/15 text-danger",
+                              "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors border",
+                              selected
+                                ? tone === "safe"
+                                  ? "bg-safe text-safe-foreground border-safe"
+                                  : tone === "warn"
+                                  ? "bg-warn text-warn-foreground border-warn"
+                                  : "bg-danger text-danger-foreground border-danger"
+                                : "bg-card border-border text-muted-foreground hover:bg-secondary"
                             )}
                           >
-                            {{ none: "无", mild: "轻微", moderate: "中度", severe: "严重" }[s.severity]}
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {c.severity && (
+                      <>
+                        <button
+                          onClick={() => setCheckIn(prev => ({
+                            ...prev,
+                            [t.id]: { ...c, showComment: !c.showComment }
+                          }))}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          {c.showComment ? "收起备注" : "+ 添加备注"}
+                        </button>
+                        {c.showComment && (
+                          <input
+                            value={c.comment}
+                            onChange={(e) => setCheckIn(prev => ({
+                              ...prev,
+                              [t.id]: { ...c, comment: e.target.value }
+                            }))}
+                            placeholder="描述症状，例如：左脸颊轻微发红..."
+                            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          />
+                        )}
+                        <button
+                          onClick={() => submitCheckIn(t.id)}
+                          className="w-full rounded-2xl bg-primary py-2 text-sm font-semibold text-primary-foreground"
+                        >
+                          确认打卡
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* 歷史記錄 */}
+                  {t.symptoms.length > 0 && (
+                    <ul className="mt-3 space-y-1.5">
+                      {t.symptoms.map((s, i) => (
+                        <li key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="font-mono">{s.date}</span>
+                          <span className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                            s.severity === "none" && "bg-safe/15 text-safe",
+                            s.severity === "mild" && "bg-warn/20 text-warn-foreground",
+                            s.severity === "moderate" && "bg-warn/40 text-warn-foreground",
+                            s.severity === "severe" && "bg-danger/15 text-danger",
+                          )}>
+                            {{ none: "无反应", mild: "轻微", moderate: "湿疹/红疹", severe: "严重" }[s.severity]}
                           </span>
+                          {s.note && <span className="text-muted-foreground">· {s.note}</span>}
+                          <button
+                            onClick={() => removeSymptom(t.id, i)}
+                            className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
                         </li>
                       ))}
                     </ul>
                   )}
 
-                  {/* Conclude */}
                   {day >= 3 && (
                     <div className="mt-4 flex gap-2 border-t border-border/60 pt-3">
                       <button
@@ -258,7 +348,6 @@ function TrialsPage() {
         )}
       </section>
 
-      {/* History */}
       {finished.length > 0 && (
         <section>
           <h3 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
@@ -268,20 +357,13 @@ function TrialsPage() {
             {finished.map((t) => {
               const food = FOODS_BY_ID[t.foodId];
               return (
-                <li
-                  key={t.id}
-                  className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-3"
-                >
+                <li key={t.id} className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-3">
                   <span className="text-xl">{food?.emoji}</span>
                   <span className="font-medium">{food?.name}</span>
-                  <span
-                    className={cn(
-                      "ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                      t.result === "safe"
-                        ? "bg-safe text-safe-foreground"
-                        : "bg-danger text-danger-foreground",
-                    )}
-                  >
+                  <span className={cn(
+                    "ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    t.result === "safe" ? "bg-safe text-safe-foreground" : "bg-danger text-danger-foreground",
+                  )}>
                     {t.result === "safe" ? "已排敏" : "过敏"}
                   </span>
                   <button onClick={() => remove(t.id)} className="text-muted-foreground hover:text-danger">
@@ -294,7 +376,6 @@ function TrialsPage() {
         </section>
       )}
 
-      {/* Tips */}
       <section className="rounded-3xl bg-secondary/60 p-5 text-sm text-secondary-foreground">
         <h3 className="font-display font-bold">排敏小贴士</h3>
         <ul className="mt-2 space-y-1.5 list-disc pl-5">
@@ -305,27 +386,5 @@ function TrialsPage() {
         </ul>
       </section>
     </div>
-  );
-}
-
-function SymBtn({
-  onClick,
-  tone,
-  children,
-}: {
-  onClick: () => void;
-  tone: "safe" | "warn" | "danger";
-  children: React.ReactNode;
-}) {
-  const cls =
-    tone === "safe"
-      ? "bg-safe/10 text-safe hover:bg-safe hover:text-safe-foreground"
-      : tone === "warn"
-      ? "bg-warn/20 text-warn-foreground hover:bg-warn"
-      : "bg-danger/10 text-danger hover:bg-danger hover:text-danger-foreground";
-  return (
-    <button onClick={onClick} className={cn("rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors", cls)}>
-      {children}
-    </button>
   );
 }
