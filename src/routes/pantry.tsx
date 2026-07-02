@@ -148,9 +148,69 @@ function AddFoodModal({ onClose, allNutrients, allAllergens }: {
   const [nutrients, setNutrients] = useState<NutrientTag[]>([]);
   const [allergens, setAllergens] = useState<AllergenId[]>([]);
   const [saving, setSaving] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   const toggle = <T,>(arr: T[], item: T) =>
     arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item];
+
+  const fetchAiInfo = async () => {
+    if (!name.trim()) return;
+    setAiLoading(true);
+    setAiError("");
+
+    const prompt = `你是一个营养师。请分析食材「${name.trim()}」，返回以下JSON，不要有任何其他文字：
+{
+  "emoji": "一个最贴切的emoji",
+  "category": "主食或蛋白质或蔬菜或水果或油脂或调味（只选一个）",
+  "nutrients": ["从以下选择相关的：蛋白质、铁、锌、钙、DHA、维D、维A、维C、膳食纤维、碳水、健康脂肪、B族"],
+  "allergens": ["从以下选择相关的：egg、milk、wheat、soy、peanut、treenut、fish、shellfish、sesame，如果没有就返回空数组"]
+}`;
+
+    try {
+      const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+      const models = [
+        "openrouter/owl-alpha",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "openai/gpt-oss-20b:free",
+        "google/gemma-4-31b-it:free",
+        "z-ai/glm-4.5-air:free",
+      ];
+
+      let data: any = null;
+      for (const model of models) {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.3,
+            max_tokens: 300,
+          }),
+        });
+        data = await res.json();
+        if (!data.error) break;
+      }
+
+      const text = data.choices?.[0]?.message?.content ?? "";
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("解析失败");
+
+      const result = JSON.parse(match[0]);
+      if (result.emoji) setEmoji(result.emoji);
+      if (result.category) setCategory(result.category as FoodCategory);
+      if (result.nutrients) setNutrients(result.nutrients.filter((n: string) => allNutrients.includes(n as NutrientTag)) as NutrientTag[]);
+      if (result.allergens) setAllergens(result.allergens.filter((a: string) => allAllergens.includes(a as AllergenId)) as AllergenId[]);
+    } catch {
+      setAiError("AI 填写失败，请手动选择");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -162,41 +222,97 @@ function AddFoodModal({ onClose, allNutrients, allAllergens }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
-      <div className="w-full max-w-md rounded-t-3xl bg-background p-6 shadow-xl sm:rounded-3xl">
+      <div className="w-full max-w-md rounded-t-3xl bg-background p-6 shadow-xl sm:rounded-3xl max-h-[90vh] overflow-y-auto">
         <h3 className="mb-4 font-display text-lg font-bold">添加自定义食材</h3>
         <div className="space-y-4">
-          <div className="flex gap-3">
-            <input value={emoji} onChange={(e) => setEmoji(e.target.value)} className="w-16 rounded-xl border border-border bg-card p-2 text-center text-2xl" />
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="食材名称" className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+
+          {/* 名稱 + AI 按鈕 */}
+          <div className="flex gap-2">
+            <input
+              value={emoji}
+              onChange={(e) => setEmoji(e.target.value)}
+              className="w-14 rounded-xl border border-border bg-card p-2 text-center text-2xl shrink-0"
+            />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={fetchAiInfo}
+              placeholder="输入食材名称"
+              className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+            <button
+              onClick={fetchAiInfo}
+              disabled={!name.trim() || aiLoading}
+              className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-50"
+            >
+              {aiLoading ? "⏳" : "✨ AI填写"}
+            </button>
           </div>
+
+          {aiLoading && (
+            <p className="text-xs text-muted-foreground animate-pulse">AI 正在分析食材营养信息…</p>
+          )}
+          {aiError && (
+            <p className="text-xs text-danger">{aiError}</p>
+          )}
+
+          {/* 分類 */}
           <div>
             <p className="mb-2 text-xs font-semibold text-muted-foreground">分类</p>
             <div className="flex flex-wrap gap-1.5">
               {(["主食","蛋白质","蔬菜","水果","油脂","调味"] as FoodCategory[]).map((c) => (
-                <button key={c} onClick={() => setCategory(c)} className={cn("rounded-full px-3 py-1 text-xs font-medium", category === c ? "bg-primary text-primary-foreground" : "border border-border bg-card")}>{c}</button>
+                <button key={c} onClick={() => setCategory(c)}
+                  className={cn("rounded-full px-3 py-1 text-xs font-medium",
+                    category === c ? "bg-primary text-primary-foreground" : "border border-border bg-card")}>
+                  {c}
+                </button>
               ))}
             </div>
           </div>
+
+          {/* 營養素 */}
           <div>
-            <p className="mb-2 text-xs font-semibold text-muted-foreground">营养素</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-muted-foreground">营养素</p>
+              {nutrients.length > 0 && (
+                <button onClick={() => setNutrients([])} className="text-[10px] text-muted-foreground hover:text-danger">清空</button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {allNutrients.map((n) => (
-                <button key={n} onClick={() => setNutrients(toggle(nutrients, n))} className={cn("rounded-full px-3 py-1 text-xs font-medium", nutrients.includes(n) ? "bg-primary text-primary-foreground" : "border border-border bg-card")}>{n}</button>
+                <button key={n} onClick={() => setNutrients(toggle(nutrients, n))}
+                  className={cn("rounded-full px-3 py-1 text-xs font-medium",
+                    nutrients.includes(n) ? "bg-primary text-primary-foreground" : "border border-border bg-card")}>
+                  {n}
+                </button>
               ))}
             </div>
           </div>
+
+          {/* 過敏原 */}
           <div>
-            <p className="mb-2 text-xs font-semibold text-muted-foreground">含过敏原</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-muted-foreground">含过敏原</p>
+              {allergens.length > 0 && (
+                <button onClick={() => setAllergens([])} className="text-[10px] text-muted-foreground hover:text-danger">清空</button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {allAllergens.map((a) => (
-                <button key={a} onClick={() => setAllergens(toggle(allergens, a))} className={cn("rounded-full px-3 py-1 text-xs font-medium", allergens.includes(a) ? "bg-danger text-white" : "border border-border bg-card")}>{ALLERGEN_LABEL[a]}</button>
+                <button key={a} onClick={() => setAllergens(toggle(allergens, a))}
+                  className={cn("rounded-full px-3 py-1 text-xs font-medium",
+                    allergens.includes(a) ? "bg-danger text-white" : "border border-border bg-card")}>
+                  {ALLERGEN_LABEL[a]}
+                </button>
               ))}
             </div>
           </div>
         </div>
+
         <div className="mt-6 flex gap-3">
           <button onClick={onClose} className="flex-1 rounded-2xl border border-border py-2.5 text-sm font-semibold">取消</button>
-          <button onClick={handleSave} disabled={!name.trim() || saving} className="flex-1 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+          <button onClick={handleSave} disabled={!name.trim() || saving}
+            className="flex-1 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
             {saving ? "保存中…" : "保存"}
           </button>
         </div>
